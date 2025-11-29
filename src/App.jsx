@@ -1,10 +1,100 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
-import { Plus, Trash2, Printer, IndianRupee, PieChart as PieIcon, Calculator, User, Box, ArrowLeft, Receipt, Paperclip, Eye, LogOut, Lock, Shield } from 'lucide-react';
+import { Plus, Trash2, Printer, IndianRupee, PieChart as PieIcon, Calculator, User, Box, ArrowLeft, Receipt, Paperclip, Eye, LogOut, Lock, Shield, X, Download, FileText } from 'lucide-react';
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1', '#14B8A6'];
 
 const TEAM_MEMBERS = ["Zafar", "Yash", "Shobhit", "Inzy", "Nomaan", "Sani", "Kabir"];
+
+// File Viewer Component
+const FileViewer = ({ fileData, fileName, fileType, onClose }) => {
+  const isPDF = fileType === 'application/pdf' || fileName?.toLowerCase().endsWith('.pdf');
+  const isImage = fileType?.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp)$/i.test(fileName || '');
+
+  const getFileUrl = () => {
+    if (fileData.startsWith('data:')) {
+      return fileData; // Already base64
+    } else if (fileData.startsWith('blob:')) {
+      return fileData; // Blob URL
+    } else {
+      return fileData; // Assume it's base64 or URL
+    }
+  };
+
+  const handleDownload = () => {
+    const link = document.createElement('a');
+    link.href = getFileUrl();
+    link.download = fileName || 'attachment';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-2xl max-w-6xl w-full max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <FileText className="text-blue-600" size={20} />
+            <div>
+              <h3 className="font-semibold text-slate-900">{fileName || 'Attachment'}</h3>
+              <p className="text-xs text-slate-500">{fileType || 'File'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleDownload}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Download"
+            >
+              <Download size={20} className="text-slate-600" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-slate-100 rounded-lg transition-colors"
+              title="Close"
+            >
+              <X size={20} className="text-slate-600" />
+            </button>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-auto p-4 bg-slate-50">
+          {isPDF ? (
+            <iframe
+              src={getFileUrl()}
+              className="w-full h-full min-h-[600px] border-0 rounded"
+              title={fileName}
+            />
+          ) : isImage ? (
+            <div className="flex items-center justify-center">
+              <img
+                src={getFileUrl()}
+                alt={fileName || 'Attachment'}
+                className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+              />
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-slate-500">
+              <FileText size={64} className="mb-4 text-slate-300" />
+              <p className="text-lg font-medium">Preview not available</p>
+              <p className="text-sm mt-2">Click download to view this file</p>
+              <button
+                onClick={handleDownload}
+                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <Download size={18} />
+                Download File
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Authorized users with IDs and passwords
 const AUTHORIZED_USERS = {
@@ -102,7 +192,7 @@ const LoginView = ({ onLogin }) => {
 };
 
 // Invoice Template Component
-const InvoiceView = ({ person, items, total, onBack }) => {
+const InvoiceView = ({ person, items, total, onBack, onViewAttachment }) => {
   const date = new Date().toLocaleDateString();
   
   return (
@@ -162,10 +252,14 @@ const InvoiceView = ({ person, items, total, onBack }) => {
                       </td>
                       <td className="py-4 text-right font-bold text-slate-800">₹{item.amount.toLocaleString()}</td>
                       <td className="py-4 text-center print:hidden">
-                        {item.attachment && (
-                           <a href={item.attachment} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800" title="View Receipt">
-                             <Eye size={16} />
-                           </a>
+                        {item.attachment && onViewAttachment && (
+                          <button
+                            onClick={() => onViewAttachment(item)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors"
+                            title="View Receipt"
+                          >
+                            <Eye size={16} />
+                          </button>
                         )}
                       </td>
                     </tr>
@@ -233,7 +327,27 @@ export default function App() {
   const [totalBudget, setTotalBudget] = useState(() => loadFromStorage('budget-totalBudget', 30000));
   const [viewInvoiceFor, setViewInvoiceFor] = useState(null);
   
-  const [items, setItems] = useState(() => loadFromStorage('budget-items', defaultItems));
+  const [items, setItems] = useState(() => {
+    const saved = loadFromStorage('budget-items', defaultItems);
+    // Ensure attachments are in correct format (data URLs)
+    return saved.map(item => {
+      if (item.attachment) {
+        // If already a data URL, use it; otherwise it should already be stored correctly
+        if (!item.attachment.startsWith('data:') && !item.attachment.startsWith('blob:')) {
+          // Legacy format - convert if needed
+          const mimeType = item.attachmentType || 'application/octet-stream';
+          return {
+            ...item,
+            attachment: `data:${mimeType};base64,${item.attachment}`
+          };
+        }
+      }
+      return item;
+    });
+  });
+  
+  // File viewer state
+  const [viewingFile, setViewingFile] = useState(null);
   
   // Authentication state
   const [isAuthenticated, setIsAuthenticated] = useState(() => {
@@ -324,10 +438,35 @@ export default function App() {
   const handleFileUpload = (id, e) => {
     const file = e.target.files[0];
     if (file) {
-      const url = URL.createObjectURL(file);
-      setItems(items.map(item => 
-        item.id === id ? { ...item, attachment: url, attachmentName: file.name } : item
-      ));
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64String = reader.result;
+        // Store as base64 for persistence
+        setItems(items.map(item => 
+          item.id === id ? { 
+            ...item, 
+            attachment: base64String, // Store full data URL
+            attachmentName: file.name,
+            attachmentType: file.type
+          } : item
+        ));
+      };
+      reader.onerror = () => {
+        alert('Error reading file. Please try again.');
+      };
+      reader.readAsDataURL(file);
+    }
+    // Reset input
+    e.target.value = '';
+  };
+
+  const handleViewAttachment = (item) => {
+    if (item.attachment) {
+      setViewingFile({
+        fileData: item.attachment,
+        fileName: item.attachmentName,
+        fileType: item.attachmentType
+      });
     }
   };
 
@@ -369,12 +508,23 @@ export default function App() {
   // Render Invoice View if selected
   if (viewInvoiceFor) {
     return (
-      <InvoiceView 
-        person={viewInvoiceFor} 
-        items={itemsByPerson[viewInvoiceFor]} 
-        total={personTotals[viewInvoiceFor]} 
-        onBack={() => setViewInvoiceFor(null)} 
-      />
+      <>
+        {viewingFile && (
+          <FileViewer
+            fileData={viewingFile.fileData}
+            fileName={viewingFile.fileName}
+            fileType={viewingFile.fileType}
+            onClose={() => setViewingFile(null)}
+          />
+        )}
+        <InvoiceView 
+          person={viewInvoiceFor} 
+          items={itemsByPerson[viewInvoiceFor]} 
+          total={personTotals[viewInvoiceFor]} 
+          onBack={() => setViewInvoiceFor(null)}
+          onViewAttachment={handleViewAttachment}
+        />
+      </>
     );
   }
 
@@ -613,13 +763,17 @@ export default function App() {
                               {isAuthenticated && (
                                 <label className="cursor-pointer text-slate-400 hover:text-blue-600 flex-shrink-0" title="Attach Receipt">
                                   <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} accept="image/*,application/pdf" />
-                                  {item.attachment ? <Eye size={16} className="text-blue-600" /> : <Paperclip size={16} />}
+                                  <Paperclip size={16} />
                                 </label>
                               )}
-                              {!isAuthenticated && item.attachment && (
-                                <a href={item.attachment} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800" title="View Receipt">
+                              {item.attachment && (
+                                <button
+                                  onClick={() => handleViewAttachment(item)}
+                                  className="text-blue-600 hover:text-blue-800 flex-shrink-0 transition-colors"
+                                  title="View Attachment"
+                                >
                                   <Eye size={16} />
-                                </a>
+                                </button>
                               )}
                             </div>
                             {item.attachmentName && <div className="text-[10px] text-slate-400 truncate max-w-[100px] pl-1">{item.attachmentName}</div>}
