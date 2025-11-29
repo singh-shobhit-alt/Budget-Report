@@ -7,7 +7,7 @@ import react from '@vitejs/plugin-react'
 // Then use: '/Budget-Report/'
 // If your repo URL is: https://username.github.io/ (user pages)
 // Then use: '/'
-const base = process.env.NODE_ENV === 'production' ? '/Budget-Report/';
+const base = process.env.NODE_ENV === 'production' ? '/Budget-Report/' : '/';
 
 export default defineConfig({
   base: base,
