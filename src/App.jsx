@@ -8,14 +8,8 @@ const TEAM_MEMBERS = ["Zafar", "Yash", "Shobhit", "Inzy", "Nomaan", "Sani", "Kab
 
 // Authorized users with IDs and passwords
 const AUTHORIZED_USERS = {
-  "admin": "admin123",
-  "zafar": "zafar123",
-  "yash": "yash123",
-  "shobhit": "shobhit123",
-  "inzy": "inzy123",
-  "nomaan": "nomaan123",
-  "sani": "sani123",
-  "kabir": "kabir123"
+  "admin": "qwerty@12345",
+
 };
 
 // Login Component
@@ -372,11 +366,6 @@ export default function App() {
     return null;
   };
 
-  // Show login if not authenticated
-  if (!isAuthenticated) {
-    return <LoginView onLogin={handleLogin} />;
-  }
-
   // Render Invoice View if selected
   if (viewInvoiceFor) {
     return (
@@ -408,23 +397,80 @@ export default function App() {
         
         {/* Header Section */}
         <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-200 pb-6 mb-6">
-          <div>
-            <div className="text-sm text-slate-500 font-medium uppercase tracking-wider mb-1">Project Budget Report</div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="text-sm text-slate-500 font-medium uppercase tracking-wider">Project Budget Report</div>
+              {isAuthenticated ? (
+                <div className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  <Shield size={12} />
+                  <span>Authenticated</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 text-xs bg-yellow-100 text-yellow-700 px-2 py-1 rounded-full">
+                  <Lock size={12} />
+                  <span>View Only</span>
+                </div>
+              )}
+            </div>
             <input 
               type="text" 
               value={projectName}
               onChange={(e) => setProjectName(e.target.value)}
-              className="text-3xl md:text-4xl font-bold bg-transparent border-none focus:ring-0 focus:outline-none placeholder-slate-300 w-full md:w-auto text-slate-900"
+              readOnly={!isAuthenticated}
+              className="text-3xl md:text-4xl font-bold bg-transparent border-none focus:ring-0 focus:outline-none placeholder-slate-300 w-full md:w-auto text-slate-900 disabled:opacity-75"
             />
-            <div className="text-slate-500 mt-1">Generated: {new Date().toLocaleDateString()}</div>
+            <div className="text-slate-500 mt-1">
+              Generated: {new Date().toLocaleDateString()}
+              {isAuthenticated && currentUser ? (
+                <span className="ml-2 text-xs">• Logged in as: <span className="font-semibold capitalize">{currentUser}</span></span>
+              ) : (
+                <span className="ml-2 text-xs text-yellow-600">• Login required to edit</span>
+              )}
+            </div>
           </div>
-          <button 
-            onClick={() => window.print()}
-            className="no-print flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition-colors shadow-sm"
-          >
-            <Printer size={18} />
-            <span>Print Report</span>
-          </button>
+          <div className="flex items-center gap-2 no-print">
+            <button 
+              onClick={() => window.print()}
+              className="flex items-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-700 transition-colors shadow-sm"
+            >
+              <Printer size={18} />
+              <span>Print Report</span>
+            </button>
+            {isAuthenticated ? (
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors shadow-sm"
+                title="Logout"
+              >
+                <LogOut size={18} />
+                <span className="hidden md:inline">Logout</span>
+              </button>
+            ) : (
+              <button 
+                onClick={() => {
+                  // Show a simple login modal
+                  const userId = prompt("Enter User ID to login and edit:");
+                  if (userId) {
+                    const password = prompt("Enter Password:");
+                    if (password) {
+                      const lowerUserId = userId.toLowerCase();
+                      if (AUTHORIZED_USERS[lowerUserId] && AUTHORIZED_USERS[lowerUserId] === password) {
+                        handleLogin(lowerUserId);
+                        alert("Login successful! You can now edit the report.");
+                      } else {
+                        alert("Invalid User ID or Password");
+                      }
+                    }
+                  }
+                }}
+                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                title="Login to Edit"
+              >
+                <Lock size={18} />
+                <span className="hidden md:inline">Login to Edit</span>
+              </button>
+            )}
+          </div>
         </header>
 
         {/* Top Stats Cards */}
@@ -440,7 +486,8 @@ export default function App() {
                 type="number" 
                 value={totalBudget}
                 onChange={(e) => setTotalBudget(Number(e.target.value))}
-                className="w-full bg-transparent border-none focus:ring-0 p-0"
+                readOnly={!isAuthenticated}
+                className="w-full bg-transparent border-none focus:ring-0 p-0 disabled:opacity-75"
               />
             </div>
             <p className="text-xs text-slate-400 mt-1">Click to edit total funds</p>
@@ -538,7 +585,8 @@ export default function App() {
                               type="text" 
                               value={item.name}
                               onChange={(e) => handleUpdateItem(item.id, 'name', e.target.value)}
-                              className="w-full font-medium bg-transparent border-none focus:ring-0 p-1 text-slate-800 placeholder-slate-400 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all"
+                              readOnly={!isAuthenticated}
+                              className="w-full font-medium bg-transparent border-none focus:ring-0 p-1 text-slate-800 placeholder-slate-400 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all disabled:opacity-75 disabled:cursor-not-allowed"
                               placeholder="Item Name"
                             />
                           </td>
@@ -547,7 +595,8 @@ export default function App() {
                               type="text" 
                               value={item.description}
                               onChange={(e) => handleUpdateItem(item.id, 'description', e.target.value)}
-                              className="w-full text-sm text-slate-500 bg-transparent border-none focus:ring-0 p-1 placeholder-slate-300 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all"
+                              readOnly={!isAuthenticated}
+                              className="w-full text-sm text-slate-500 bg-transparent border-none focus:ring-0 p-1 placeholder-slate-300 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all disabled:opacity-75 disabled:cursor-not-allowed"
                               placeholder="Description"
                             />
                           </td>
@@ -557,13 +606,21 @@ export default function App() {
                                 type="text" 
                                 value={item.invoice}
                                 onChange={(e) => handleUpdateItem(item.id, 'invoice', e.target.value)}
-                                className="w-full text-sm font-mono text-blue-600 bg-transparent border-none focus:ring-0 p-1 placeholder-slate-300 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all"
+                                readOnly={!isAuthenticated}
+                                className="w-full text-sm font-mono text-blue-600 bg-transparent border-none focus:ring-0 p-1 placeholder-slate-300 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all disabled:opacity-75 disabled:cursor-not-allowed"
                                 placeholder="No."
                               />
-                              <label className="cursor-pointer text-slate-400 hover:text-blue-600 flex-shrink-0" title="Attach Receipt">
-                                <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} accept="image/*,application/pdf" />
-                                {item.attachment ? <Eye size={16} className="text-blue-600" /> : <Paperclip size={16} />}
-                              </label>
+                              {isAuthenticated && (
+                                <label className="cursor-pointer text-slate-400 hover:text-blue-600 flex-shrink-0" title="Attach Receipt">
+                                  <input type="file" className="hidden" onChange={(e) => handleFileUpload(item.id, e)} accept="image/*,application/pdf" />
+                                  {item.attachment ? <Eye size={16} className="text-blue-600" /> : <Paperclip size={16} />}
+                                </label>
+                              )}
+                              {!isAuthenticated && item.attachment && (
+                                <a href={item.attachment} target="_blank" rel="noreferrer" className="text-blue-600 hover:text-blue-800" title="View Receipt">
+                                  <Eye size={16} />
+                                </a>
+                              )}
                             </div>
                             {item.attachmentName && <div className="text-[10px] text-slate-400 truncate max-w-[100px] pl-1">{item.attachmentName}</div>}
                           </td>
@@ -572,17 +629,20 @@ export default function App() {
                               type="number" 
                               value={item.amount}
                               onChange={(e) => handleUpdateItem(item.id, 'amount', Number(e.target.value))}
-                              className="w-full text-right font-mono text-slate-700 bg-transparent border-none focus:ring-0 p-1 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all"
+                              readOnly={!isAuthenticated}
+                              className="w-full text-right font-mono text-slate-700 bg-transparent border-none focus:ring-0 p-1 rounded hover:bg-white focus:bg-white focus:shadow-sm transition-all disabled:opacity-75 disabled:cursor-not-allowed"
                             />
                           </td>
                           <td className="p-2 text-center no-print">
-                            <button 
-                              onClick={() => handleDeleteItem(item.id)}
-                              className="text-slate-300 hover:text-red-500 transition-colors p-1"
-                              title="Delete"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {isAuthenticated && (
+                              <button 
+                                onClick={() => handleDeleteItem(item.id)}
+                                className="text-slate-300 hover:text-red-500 transition-colors p-1"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}
@@ -591,15 +651,17 @@ export default function App() {
                 </div>
 
                 {/* Add Button per person */}
-                <div className="p-3 border-t border-slate-100 bg-slate-50/50 no-print">
-                  <button 
-                    onClick={() => handleAddItemForPerson(member)}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full"
-                  >
-                    <Plus size={14} />
-                    Add Expense for {member}
-                  </button>
-                </div>
+                {isAuthenticated && (
+                  <div className="p-3 border-t border-slate-100 bg-slate-50/50 no-print">
+                    <button 
+                      onClick={() => handleAddItemForPerson(member)}
+                      className="flex items-center gap-1.5 text-xs font-semibold text-blue-600 hover:text-blue-800 transition-colors bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-full"
+                    >
+                      <Plus size={14} />
+                      Add Expense for {member}
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
