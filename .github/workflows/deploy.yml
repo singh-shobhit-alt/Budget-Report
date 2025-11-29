@@ -32,8 +32,11 @@ jobs:
 
       - name: Install dependencies
         run: |
+          # Remove lock file and node_modules to fix optional dependencies issue
+          rm -rf node_modules package-lock.json
           npm install
-          chmod +x node_modules/.bin/* || true
+          # Explicitly install Rollup optional dependency for Linux
+          npm install @rollup/rollup-linux-x64-gnu --save-optional || true
 
       - name: Build
         run: npx vite build
